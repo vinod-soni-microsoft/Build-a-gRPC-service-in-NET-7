@@ -15,7 +15,7 @@ service ToDoIt {
         };
     }
 
-    // Read single
+    // Read singledotne
     rpc ReadToDo(ReadToDoRequest) returns (ReadToDoResponse) {
         option (google.api.http) = {
             get: "/v1/todo/{id}"
