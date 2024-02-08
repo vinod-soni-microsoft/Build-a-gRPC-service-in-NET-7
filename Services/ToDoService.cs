@@ -1,49 +1,43 @@
 using Grpc.Core;
-using Microsoft.EntityFrameworkCore;
-using ToDoGrpc.Data;
 using ToDoGrpc.Models;
 
 namespace ToDoGrpc.Services;
 
 public class ToDoService : ToDoIt.ToDoItBase
 {
-    private readonly AppDbContext _dbContext;
+    private static List<ToDoItem> _toDoItems = new List<ToDoItem>();
 
-    public ToDoService(AppDbContext dbContext)
+    public override Task<CreateToDoResponse> CreateToDo(CreateToDoRequest request, ServerCallContext context)
     {
-        _dbContext = dbContext;
-    }
-
-    public override async Task<CreateToDoResponse> CreateToDo(CreateToDoRequest request, ServerCallContext context)
-    {
-        if(request.Title == string.Empty || request.Description == string.Empty)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "You must suppply a valid object"));
+        if (request.Title == string.Empty || request.Description == string.Empty)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "You must supply a valid object"));
 
         var toDoItem = new ToDoItem
         {
+            Id = _toDoItems.Count + 1,
             Title = request.Title,
             Description = request.Description
         };
 
-        await _dbContext.AddAsync(toDoItem);
-        await _dbContext.SaveChangesAsync();
+        _toDoItems.Add(toDoItem);
 
-        return await Task.FromResult(new CreateToDoResponse
+        return Task.FromResult(new CreateToDoResponse
         {
             Id = toDoItem.Id
         });
     }
 
-    public override async Task<ReadToDoResponse> ReadToDo(ReadToDoRequest request, ServerCallContext context)
+    public override Task<ReadToDoResponse> ReadToDo(ReadToDoRequest request, ServerCallContext context)
     {
-        if(request.Id <=0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "resouce index must be greater than 0"));
-        
-        var toDoItem = await _dbContext.ToDoItems.FirstOrDefaultAsync(t=>t.Id == request.Id);
+        if (request.Id <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "resource index must be greater than 0"));
 
-        if(toDoItem != null)
+        var toDoItem = _toDoItems.FirstOrDefault(t => t.Id == request.Id);
+
+        if (toDoItem != null)
         {
-            return await Task.FromResult(new ReadToDoResponse{
+            return Task.FromResult(new ReadToDoResponse
+            {
                 Id = toDoItem.Id,
                 Title = toDoItem.Title,
                 Description = toDoItem.Description,
@@ -54,14 +48,14 @@ public class ToDoService : ToDoIt.ToDoItBase
         throw new RpcException(new Status(StatusCode.NotFound, $"No Task with id {request.Id}"));
     }
 
-    public override async Task<GetAllResponse> ListToDo(GetAllRequest request, ServerCallContext context)
+    public override Task<GetAllResponse> ListToDo(GetAllRequest request, ServerCallContext context)
     {
         var response = new GetAllResponse();
-        var toDoItems = await _dbContext.ToDoItems.ToListAsync();
 
-        foreach(var toDo in toDoItems)
+        foreach (var toDo in _toDoItems)
         {
-            response.ToDo.Add(new ReadToDoResponse{
+            response.ToDo.Add(new ReadToDoResponse
+            {
                 Id = toDo.Id,
                 Title = toDo.Title,
                 Description = toDo.Description,
@@ -69,47 +63,44 @@ public class ToDoService : ToDoIt.ToDoItBase
             });
         }
 
-        return await Task.FromResult(response);
+        return Task.FromResult(response);
     }
 
-    public override async Task<UpdateToDoResponse> UpdateToDo(UpdateToDoRequest request, ServerCallContext context)
+    public override Task<UpdateToDoResponse> UpdateToDo(UpdateToDoRequest request, ServerCallContext context)
     {
-        if(request.Id <= 0 || request.Title == string.Empty || request.Description == string.Empty )
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "You must suppply a valid object"));
-        
-        var toDoItem = await _dbContext.ToDoItems.FirstOrDefaultAsync(t=>t.Id == request.Id);
+        if (request.Id <= 0 || request.Title == string.Empty || request.Description == string.Empty)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "You must supply a valid object"));
 
-        if(toDoItem == null)
+        var toDoItem = _toDoItems.FirstOrDefault(t => t.Id == request.Id);
+
+        if (toDoItem == null)
             throw new RpcException(new Status(StatusCode.NotFound, $"No Task with Id {request.Id}"));
 
         toDoItem.Title = request.Title;
         toDoItem.Description = request.Description;
         toDoItem.ToDoStatus = request.ToDoStatus;
 
-        await _dbContext.SaveChangesAsync();
-
-        return await Task.FromResult(new UpdateToDoResponse{
+        return Task.FromResult(new UpdateToDoResponse
+        {
             Id = toDoItem.Id
         });
     }
 
-    public override async Task<DeleteToDoResponse> DeleteToDo(DeleteToDoRequest request, ServerCallContext context)
+    public override Task<DeleteToDoResponse> DeleteToDo(DeleteToDoRequest request, ServerCallContext context)
     {
-        if(request.Id <=0)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "resouce index must be greater than 0"));
-        
-        var toDoItem = await _dbContext.ToDoItems.FirstOrDefaultAsync(t=>t.Id == request.Id);
+        if (request.Id <= 0)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "resource index must be greater than 0"));
 
-        if(toDoItem == null)
+        var toDoItem = _toDoItems.FirstOrDefault(t => t.Id == request.Id);
+
+        if (toDoItem == null)
             throw new RpcException(new Status(StatusCode.NotFound, $"No Task with Id {request.Id}"));
 
-        _dbContext.Remove(toDoItem);
+        _toDoItems.Remove(toDoItem);
 
-        await _dbContext.SaveChangesAsync();
-
-        return await Task.FromResult(new DeleteToDoResponse{
+        return Task.FromResult(new DeleteToDoResponse
+        {
             Id = toDoItem.Id
         });
-
     }
 }
